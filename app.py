@@ -24,8 +24,8 @@ except KeyError:
     st.error("API key not found in secrets. Please add an [openrouter] section with 'api_key' to .streamlit/secrets.toml.")
     API_KEY = None
 
-YOUR_SITE_URL = "https://your-site.com"
-YOUR_SITE_NAME = "YourSiteName"
+YOUR_SITE_URL = "https://your-site.com"  # (Optional) Your site URL.
+YOUR_SITE_NAME = "YourSiteName"          # (Optional) Your site name.
 
 # Set OpenAI settings to use OpenRouter.
 openai.api_key = API_KEY
@@ -40,7 +40,7 @@ QWEN_MODEL = "qwen/qwen-vl-plus:free"
 # ----------------------------
 def evaluate_with_model(model_name, answer, question):
     """
-    Uses the OpenAI ChatCompletion endpoint to evaluate the candidate's answer.
+    Uses OpenAI's ChatCompletion endpoint (via OpenRouter) to evaluate the candidate's answer.
     """
     prompt = (
         f"Evaluate the candidate's answer to the interview question with a focus on practical skills, project experience, "
@@ -52,6 +52,7 @@ def evaluate_with_model(model_name, answer, question):
         f"2. Clarity and Depth of Concept Explanation: How clearly and thoroughly does the candidate explain the concepts?\n\n"
         f"Briefly mention any areas for improvement."
     )
+    
     try:
         completion = openai.ChatCompletion.create(
             model=model_name,
@@ -62,6 +63,7 @@ def evaluate_with_model(model_name, answer, question):
         evaluation = completion.choices[0].message.content
     except Exception as e:
         evaluation = f"Error during evaluation with {model_name}: {e}"
+    
     return evaluation
 
 def evaluate_answer(answer, question, selected_model):
@@ -89,7 +91,7 @@ def evaluate_answer(answer, question, selected_model):
 
 def generate_clarification(answer, question):
     """
-    Uses the OpenAI ChatCompletion endpoint to provide clarification suggestions for the candidate's answer.
+    Uses OpenAI's ChatCompletion to provide clarification suggestions or rephrasing for the candidate's answer.
     """
     prompt = (
         "You are an interviewer assisting a candidate in refining their answer. The candidate has just provided an answer to the following question. "
