@@ -17,7 +17,9 @@ import PyPDF2
 # ----------------------------
 # Configuration and Constants
 # ----------------------------
-API_KEY = "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"
+# Retrieve the API key from Streamlit secrets.
+API_KEY = st.secrets["openrouter"]["api_key"]
+
 YOUR_SITE_URL = "https://your-site.com"
 YOUR_SITE_NAME = "YourSiteName"
 
@@ -29,9 +31,13 @@ QWEN_MODEL = "qwen/qwen-vl-plus:free"
 # Helper Functions
 # ----------------------------
 def evaluate_with_model(model_name, answer, question):
+    """
+    Sends a prompt to the specified model to evaluate the candidate's answer.
+    The evaluation focuses on practical skills and clarity of core concept explanation.
+    """
     prompt = (
         f"Evaluate the candidate's answer to the interview question with a focus on practical skills, project experience, "
-        f"and clarity of the core concepts. Consider that the candidate may describe hands-on experiences differently. \n\n"
+        f"and clarity of the core concepts. Consider that the candidate may describe hands-on experiences differently.\n\n"
         f"Question: {question}\n\n"
         f"Answer: {answer}\n\n"
         f"Please provide two scores out of 100:\n"
@@ -69,6 +75,9 @@ def evaluate_with_model(model_name, answer, question):
     return evaluation
 
 def evaluate_answer(answer, question, selected_model):
+    """
+    Evaluates the candidate's answer using the selected model(s).
+    """
     if selected_model == "Gemini":
         st.info("Calling Gemini model for evaluation...")
         evaluation = evaluate_with_model(GEMINI_MODEL, answer, question)
@@ -89,9 +98,13 @@ def evaluate_answer(answer, question, selected_model):
         return combined_evaluation
 
 def generate_clarification(answer, question):
+    """
+    Uses the AI model to provide clarification suggestions or rephrasing for the candidate's answer.
+    This may include suggestions to elaborate further or rephrase for clarity.
+    """
     prompt = (
         "You are an interviewer assisting a candidate in refining their answer. The candidate has just provided an answer to the following question. "
-        "Please provide suggestions on how they can clarify, rephrase, or further elaborate their answer, highlighting areas that might need more detail. \n\n"
+        "Please provide suggestions on how they can clarify, rephrase, or further elaborate their answer, highlighting areas that might need more detail.\n\n"
         f"Question: {question}\n\n"
         f"Candidate's Answer: {answer}\n\n"
         "Clarification and Suggestions:"
@@ -124,6 +137,9 @@ def generate_clarification(answer, question):
     return clarification
 
 def extract_text_from_pdf(pdf_file):
+    """
+    Extracts text from the uploaded PDF file using PyPDF2.
+    """
     pdf_reader = PyPDF2.PdfReader(pdf_file)
     text = ""
     for page in pdf_reader.pages:
@@ -133,6 +149,10 @@ def extract_text_from_pdf(pdf_file):
     return text
 
 def generate_dynamic_question(resume_text, conversation_history):
+    """
+    Uses an AI model to generate a dynamic, context-specific interview question based on the candidate's resume 
+    and the previous conversation history.
+    """
     history_text = ""
     if conversation_history:
         for i, entry in enumerate(conversation_history):
@@ -189,18 +209,19 @@ def main():
         """
     )
     
+    # Initialize session state variables if not already set.
     if "conversation_history" not in st.session_state:
-        st.session_state.conversation_history = []
+        st.session_state.conversation_history = []  # List of dicts: {"question": ..., "answer": ..., "evaluation": ..., "clarification": ...}
     if "current_question" not in st.session_state:
         st.session_state.current_question = ""
     if "resume_text" not in st.session_state:
         st.session_state.resume_text = ""
     if "selected_model" not in st.session_state:
-        st.session_state.selected_model = "Both"
+        st.session_state.selected_model = "Both"  # Default to using both models
     if "round" not in st.session_state:
-        st.session_state.round = 0
+        st.session_state.round = 0  # Count of rounds/questions
     if "awaiting_confirmation" not in st.session_state:
-        st.session_state.awaiting_confirmation = False
+        st.session_state.awaiting_confirmation = False  # Waiting for candidate confirmation
     if "current_answer" not in st.session_state:
         st.session_state.current_answer = ""
     if "current_evaluation" not in st.session_state:
@@ -208,12 +229,14 @@ def main():
     if "current_clarification" not in st.session_state:
         st.session_state.current_clarification = ""
 
+    # Sidebar for model selection.
     st.sidebar.header("Model Selection")
     st.session_state.selected_model = st.sidebar.selectbox(
         "Choose the model(s) for evaluation:",
         ("Gemini", "Qwen", "Both")
     )
     
+    # Sidebar for resume upload.
     st.sidebar.header("Upload Your Resume PDF")
     uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf", key="resume_uploader")
     if uploaded_file is not None:
@@ -225,6 +248,7 @@ def main():
         st.info("Please upload your resume PDF from the sidebar to begin the interview.")
         return
 
+    # End the interview after a fixed number of rounds (if desired).
     MAX_ROUNDS = 5
     if st.session_state.round >= MAX_ROUNDS:
         st.header("Interview Completed")
@@ -241,6 +265,7 @@ def main():
         st.markdown(report)
         return
 
+    # Generate a new question only if one is not already set.
     if st.session_state.current_question == "":
         st.session_state.current_question = generate_dynamic_question(
             st.session_state.resume_text, st.session_state.conversation_history
@@ -251,6 +276,7 @@ def main():
     
     candidate_answer = st.text_area("Your Answer:", key=f"answer_{st.session_state.round}")
     
+    # When the answer is submitted (and we're not awaiting confirmation).
     if not st.session_state.awaiting_confirmation and st.button("Submit Answer", key=f"submit_{st.session_state.round}"):
         if candidate_answer.strip() == "":
             st.warning("Please enter your answer before submitting.")
@@ -263,6 +289,7 @@ def main():
             st.success("Evaluation completed!")
             st.markdown(evaluation)
     
+    # If awaiting confirmation, offer options for clarification or to proceed.
     if st.session_state.awaiting_confirmation:
         if st.button("Need More Clarification", key=f"clarify_{st.session_state.round}"):
             clarification = generate_clarification(st.session_state.current_answer, st.session_state.current_question)
