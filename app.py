@@ -18,12 +18,16 @@ import PyPDF2
 # Configuration and Constants
 # ----------------------------
 # Retrieve the API key from Streamlit secrets.
-API_KEY = st.secrets["openrouter"]["api_key"]
+try:
+    API_KEY = st.secrets["openrouter"]["api_key"]
+except KeyError:
+    st.error("API key not found in secrets. Please add [openrouter] section with 'api_key' to .streamlit/secrets.toml.")
+    API_KEY = None
 
 YOUR_SITE_URL = "https://your-site.com"
 YOUR_SITE_NAME = "YourSiteName"
 
-# Model identifiers (using Gemini for dynamic question generation and clarification)
+# Model identifiers
 GEMINI_MODEL = "google/gemini-2.0-flash-thinking-exp:free"
 QWEN_MODEL = "qwen/qwen-vl-plus:free"
 
@@ -33,7 +37,6 @@ QWEN_MODEL = "qwen/qwen-vl-plus:free"
 def evaluate_with_model(model_name, answer, question):
     """
     Sends a prompt to the specified model to evaluate the candidate's answer.
-    The evaluation focuses on practical skills and clarity of core concept explanation.
     """
     prompt = (
         f"Evaluate the candidate's answer to the interview question with a focus on practical skills, project experience, "
@@ -100,7 +103,6 @@ def evaluate_answer(answer, question, selected_model):
 def generate_clarification(answer, question):
     """
     Uses the AI model to provide clarification suggestions or rephrasing for the candidate's answer.
-    This may include suggestions to elaborate further or rephrase for clarity.
     """
     prompt = (
         "You are an interviewer assisting a candidate in refining their answer. The candidate has just provided an answer to the following question. "
@@ -150,8 +152,7 @@ def extract_text_from_pdf(pdf_file):
 
 def generate_dynamic_question(resume_text, conversation_history):
     """
-    Uses an AI model to generate a dynamic, context-specific interview question based on the candidate's resume 
-    and the previous conversation history.
+    Generates a dynamic interview question based on the candidate's resume and conversation history.
     """
     history_text = ""
     if conversation_history:
@@ -209,19 +210,19 @@ def main():
         """
     )
     
-    # Initialize session state variables if not already set.
+    # Initialize session state variables.
     if "conversation_history" not in st.session_state:
-        st.session_state.conversation_history = []  # List of dicts: {"question": ..., "answer": ..., "evaluation": ..., "clarification": ...}
+        st.session_state.conversation_history = []  
     if "current_question" not in st.session_state:
         st.session_state.current_question = ""
     if "resume_text" not in st.session_state:
         st.session_state.resume_text = ""
     if "selected_model" not in st.session_state:
-        st.session_state.selected_model = "Both"  # Default to using both models
+        st.session_state.selected_model = "Both"
     if "round" not in st.session_state:
-        st.session_state.round = 0  # Count of rounds/questions
+        st.session_state.round = 0  
     if "awaiting_confirmation" not in st.session_state:
-        st.session_state.awaiting_confirmation = False  # Waiting for candidate confirmation
+        st.session_state.awaiting_confirmation = False  
     if "current_answer" not in st.session_state:
         st.session_state.current_answer = ""
     if "current_evaluation" not in st.session_state:
@@ -229,14 +230,14 @@ def main():
     if "current_clarification" not in st.session_state:
         st.session_state.current_clarification = ""
 
-    # Sidebar for model selection.
+    # Sidebar: Model selection.
     st.sidebar.header("Model Selection")
     st.session_state.selected_model = st.sidebar.selectbox(
         "Choose the model(s) for evaluation:",
         ("Gemini", "Qwen", "Both")
     )
     
-    # Sidebar for resume upload.
+    # Sidebar: Upload resume.
     st.sidebar.header("Upload Your Resume PDF")
     uploaded_file = st.sidebar.file_uploader("Choose a PDF file", type="pdf", key="resume_uploader")
     if uploaded_file is not None:
@@ -248,7 +249,7 @@ def main():
         st.info("Please upload your resume PDF from the sidebar to begin the interview.")
         return
 
-    # End the interview after a fixed number of rounds (if desired).
+    # End the interview after MAX_ROUNDS.
     MAX_ROUNDS = 5
     if st.session_state.round >= MAX_ROUNDS:
         st.header("Interview Completed")
@@ -265,7 +266,7 @@ def main():
         st.markdown(report)
         return
 
-    # Generate a new question only if one is not already set.
+    # Generate a new question if not already set.
     if st.session_state.current_question == "":
         st.session_state.current_question = generate_dynamic_question(
             st.session_state.resume_text, st.session_state.conversation_history
@@ -276,7 +277,7 @@ def main():
     
     candidate_answer = st.text_area("Your Answer:", key=f"answer_{st.session_state.round}")
     
-    # When the answer is submitted (and we're not awaiting confirmation).
+    # When the answer is submitted.
     if not st.session_state.awaiting_confirmation and st.button("Submit Answer", key=f"submit_{st.session_state.round}"):
         if candidate_answer.strip() == "":
             st.warning("Please enter your answer before submitting.")
@@ -289,7 +290,7 @@ def main():
             st.success("Evaluation completed!")
             st.markdown(evaluation)
     
-    # If awaiting confirmation, offer options for clarification or to proceed.
+    # If awaiting confirmation.
     if st.session_state.awaiting_confirmation:
         if st.button("Need More Clarification", key=f"clarify_{st.session_state.round}"):
             clarification = generate_clarification(st.session_state.current_answer, st.session_state.current_question)
