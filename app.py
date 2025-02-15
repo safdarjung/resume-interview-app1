@@ -8,9 +8,8 @@ Instructions:
 3. Refine your answers based on AI evaluation and clarifications.
 4. Once satisfied, proceed to the next question.
 """
-
 import streamlit as st
-import openai
+import requests
 import json
 import PyPDF2
 
@@ -21,15 +20,11 @@ import PyPDF2
 try:
     API_KEY = st.secrets["openrouter"]["api_key"]
 except KeyError:
-    st.error("API key not found in secrets. Please add an [openrouter] section with 'api_key' to .streamlit/secrets.toml.")
+    st.error("API key not found in secrets. Please add [openrouter] section with 'api_key' to .streamlit/secrets.toml.")
     API_KEY = None
 
-YOUR_SITE_URL = "https://your-site.com"  # (Optional) Your site URL.
-YOUR_SITE_NAME = "YourSiteName"          # (Optional) Your site name.
-
-# Set OpenAI settings to use OpenRouter.
-openai.api_key = API_KEY
-openai.api_base = "https://openrouter.ai/api/v1"
+YOUR_SITE_URL = "https://your-site.com"
+YOUR_SITE_NAME = "YourSiteName"
 
 # Model identifiers
 GEMINI_MODEL = "google/gemini-2.0-flash-thinking-exp:free"
@@ -40,7 +35,7 @@ QWEN_MODEL = "qwen/qwen-vl-plus:free"
 # ----------------------------
 def evaluate_with_model(model_name, answer, question):
     """
-    Uses OpenAI's ChatCompletion endpoint (via OpenRouter) to evaluate the candidate's answer.
+    Sends a prompt to the specified model to evaluate the candidate's answer.
     """
     prompt = (
         f"Evaluate the candidate's answer to the interview question with a focus on practical skills, project experience, "
@@ -53,14 +48,29 @@ def evaluate_with_model(model_name, answer, question):
         f"Briefly mention any areas for improvement."
     )
     
+    payload = {
+        "model": model_name,
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": prompt}]}
+        ]
+    }
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": YOUR_SITE_URL,
+        "X-Title": YOUR_SITE_NAME
+    }
+    
     try:
-        completion = openai.ChatCompletion.create(
-            model=model_name,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=10
         )
-        evaluation = completion.choices[0].message.content
+        response.raise_for_status()
+        result = response.json()
+        evaluation = result.get("choices", [{}])[0].get("message", {}).get("content", "No evaluation provided.")
     except Exception as e:
         evaluation = f"Error during evaluation with {model_name}: {e}"
     
@@ -91,23 +101,43 @@ def evaluate_answer(answer, question, selected_model):
 
 def generate_clarification(answer, question):
     """
-    Uses OpenAI's ChatCompletion to provide clarification suggestions or rephrasing for the candidate's answer.
+    Uses the AI model to provide a detailed, correct answer along with clear explanations,
+    as if practicing with a real interviewer. This response not only refines your answer
+    but also shows you what a high-quality, detailed answer might look like.
     """
     prompt = (
-        "You are an interviewer assisting a candidate in refining their answer. The candidate has just provided an answer to the following question. "
-        "Please provide suggestions on how they can clarify, rephrase, or further elaborate their answer, highlighting areas that might need more detail.\n\n"
+        "You are a seasoned interviewer helping a candidate practice for a real interview. "
+        "The candidate has just provided an answer to the following interview question. "
+        "Please provide a detailed and correct answer that covers all key points, includes clear explanations, "
+        "and offers additional context that would be expected in a high-quality response. "
+        "In your response, highlight any areas where the candidate's answer might be lacking and show how it can be improved.\n\n"
         f"Question: {question}\n\n"
         f"Candidate's Answer: {answer}\n\n"
-        "Clarification and Suggestions:"
+        "Detailed Correct Answer and Explanation:"
     )
+    
+    payload = {
+        "model": GEMINI_MODEL,
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": prompt}]}
+        ]
+    }
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": YOUR_SITE_URL,
+        "X-Title": YOUR_SITE_NAME
+    }
     try:
-        completion = openai.ChatCompletion.create(
-            model=GEMINI_MODEL,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=10
         )
-        clarification = completion.choices[0].message.content
+        response.raise_for_status()
+        result = response.json()
+        clarification = result.get("choices", [{}])[0].get("message", {}).get("content", "No clarification provided.")
     except Exception as e:
         clarification = f"Error during clarification generation: {e}"
     return clarification
@@ -144,14 +174,29 @@ def generate_dynamic_question(resume_text, conversation_history):
         f"Conversation History:\n{history_text}\n\n"
         "Interview Question:"
     )
+    
+    payload = {
+        "model": GEMINI_MODEL,
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": prompt}]}
+        ]
+    }
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": YOUR_SITE_URL,
+        "X-Title": YOUR_SITE_NAME
+    }
     try:
-        completion = openai.ChatCompletion.create(
-            model=GEMINI_MODEL,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=10
         )
-        question = completion.choices[0].message.content
+        response.raise_for_status()
+        result = response.json()
+        question = result.get("choices", [{}])[0].get("message", {}).get("content", "No question generated.")
     except Exception as e:
         question = f"Error generating question: {e}"
     return question
@@ -254,7 +299,7 @@ def main():
         if st.button("Need More Clarification", key=f"clarify_{st.session_state.round}"):
             clarification = generate_clarification(st.session_state.current_answer, st.session_state.current_question)
             st.session_state.current_clarification = clarification
-            st.info("Clarification / Suggestions:")
+            st.info("Clarification / Detailed Answer:")
             st.markdown(clarification)
         if st.button("Proceed to Next Question", key=f"next_{st.session_state.round}"):
             st.session_state.conversation_history.append({
