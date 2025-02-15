@@ -1,0 +1,10 @@
+# Ignore virtual environment folders
+myenv/
+myvenv/
+venv/
+tetsing.py/
+# Ignore Python cache files
+*.pyc
+__pycache__/
+
+# (Optional) Ignore other files/directories you don't want tracked
