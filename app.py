@@ -40,7 +40,7 @@ QWEN_MODEL = "qwen/qwen-vl-plus:free"
 # ----------------------------
 def evaluate_with_model(model_name, answer, question):
     """
-    Uses the OpenAI ChatCompletion endpoint (via OpenRouter) to evaluate the candidate's answer.
+    Uses the OpenAI ChatCompletion endpoint to evaluate the candidate's answer.
     """
     prompt = (
         f"Evaluate the candidate's answer to the interview question with a focus on practical skills, project experience, "
@@ -52,22 +52,16 @@ def evaluate_with_model(model_name, answer, question):
         f"2. Clarity and Depth of Concept Explanation: How clearly and thoroughly does the candidate explain the concepts?\n\n"
         f"Briefly mention any areas for improvement."
     )
-    
     try:
         completion = openai.ChatCompletion.create(
             model=model_name,
             messages=[
-                {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            ],
-            extra_headers={
-                "HTTP-Referer": YOUR_SITE_URL,
-                "X-Title": YOUR_SITE_NAME
-            }
+                {"role": "user", "content": prompt}
+            ]
         )
         evaluation = completion.choices[0].message.content
     except Exception as e:
         evaluation = f"Error during evaluation with {model_name}: {e}"
-    
     return evaluation
 
 def evaluate_answer(answer, question, selected_model):
@@ -95,7 +89,7 @@ def evaluate_answer(answer, question, selected_model):
 
 def generate_clarification(answer, question):
     """
-    Uses the AI model to provide clarification suggestions or rephrasing for the candidate's answer.
+    Uses the OpenAI ChatCompletion endpoint to provide clarification suggestions for the candidate's answer.
     """
     prompt = (
         "You are an interviewer assisting a candidate in refining their answer. The candidate has just provided an answer to the following question. "
@@ -104,17 +98,12 @@ def generate_clarification(answer, question):
         f"Candidate's Answer: {answer}\n\n"
         "Clarification and Suggestions:"
     )
-    
     try:
         completion = openai.ChatCompletion.create(
             model=GEMINI_MODEL,
             messages=[
-                {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            ],
-            extra_headers={
-                "HTTP-Referer": YOUR_SITE_URL,
-                "X-Title": YOUR_SITE_NAME
-            }
+                {"role": "user", "content": prompt}
+            ]
         )
         clarification = completion.choices[0].message.content
     except Exception as e:
@@ -153,17 +142,12 @@ def generate_dynamic_question(resume_text, conversation_history):
         f"Conversation History:\n{history_text}\n\n"
         "Interview Question:"
     )
-    
     try:
         completion = openai.ChatCompletion.create(
             model=GEMINI_MODEL,
             messages=[
-                {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            ],
-            extra_headers={
-                "HTTP-Referer": YOUR_SITE_URL,
-                "X-Title": YOUR_SITE_NAME
-            }
+                {"role": "user", "content": prompt}
+            ]
         )
         question = completion.choices[0].message.content
     except Exception as e:
