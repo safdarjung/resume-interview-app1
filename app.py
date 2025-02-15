@@ -10,9 +10,9 @@ Instructions:
 """
 
 import streamlit as st
-import requests
 import json
 import PyPDF2
+from openai import OpenAI  # Make sure the openai package is installed
 
 # ----------------------------
 # Configuration and Constants
@@ -31,12 +31,18 @@ YOUR_SITE_NAME = "YourSiteName"
 GEMINI_MODEL = "google/gemini-2.0-flash-thinking-exp:free"
 QWEN_MODEL = "qwen/qwen-vl-plus:free"
 
+# Create an OpenAI client configured to use OpenRouter
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=API_KEY,
+)
+
 # ----------------------------
 # Helper Functions
 # ----------------------------
 def evaluate_with_model(model_name, answer, question):
     """
-    Sends a prompt to the specified model to evaluate the candidate's answer.
+    Sends a prompt to the specified model (Gemini or Qwen) to evaluate the candidate's answer.
     """
     prompt = (
         f"Evaluate the candidate's answer to the interview question with a focus on practical skills, project experience, "
@@ -48,33 +54,21 @@ def evaluate_with_model(model_name, answer, question):
         f"2. Clarity and Depth of Concept Explanation: How clearly and thoroughly does the candidate explain the concepts?\n\n"
         f"Briefly mention any areas for improvement."
     )
-    
-    payload = {
-        "model": model_name,
-        "messages": [
-            {"role": "user", "content": [{"type": "text", "text": prompt}]}
-        ]
-    }
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": YOUR_SITE_URL,
-        "X-Title": YOUR_SITE_NAME
-    }
-    
     try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            data=json.dumps(payload),
-            timeout=10
+        completion = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": YOUR_SITE_URL,
+                "X-Title": YOUR_SITE_NAME
+            },
+            extra_body={},
+            model=model_name,
+            messages=[
+                {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            ]
         )
-        response.raise_for_status()
-        result = response.json()
-        evaluation = result.get("choices", [{}])[0].get("message", {}).get("content", "No evaluation provided.")
+        evaluation = completion.choices[0].message.content
     except Exception as e:
         evaluation = f"Error during evaluation with {model_name}: {e}"
-    
     return evaluation
 
 def evaluate_answer(answer, question, selected_model):
@@ -111,29 +105,19 @@ def generate_clarification(answer, question):
         f"Candidate's Answer: {answer}\n\n"
         "Clarification and Suggestions:"
     )
-    
-    payload = {
-        "model": GEMINI_MODEL,
-        "messages": [
-            {"role": "user", "content": [{"type": "text", "text": prompt}]}
-        ]
-    }
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": YOUR_SITE_URL,
-        "X-Title": YOUR_SITE_NAME
-    }
     try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            data=json.dumps(payload),
-            timeout=10
+        completion = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": YOUR_SITE_URL,
+                "X-Title": YOUR_SITE_NAME
+            },
+            extra_body={},
+            model=GEMINI_MODEL,
+            messages=[
+                {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            ]
         )
-        response.raise_for_status()
-        result = response.json()
-        clarification = result.get("choices", [{}])[0].get("message", {}).get("content", "No clarification provided.")
+        clarification = completion.choices[0].message.content
     except Exception as e:
         clarification = f"Error during clarification generation: {e}"
     return clarification
@@ -170,29 +154,19 @@ def generate_dynamic_question(resume_text, conversation_history):
         f"Conversation History:\n{history_text}\n\n"
         "Interview Question:"
     )
-    
-    payload = {
-        "model": GEMINI_MODEL,
-        "messages": [
-            {"role": "user", "content": [{"type": "text", "text": prompt}]}
-        ]
-    }
-    headers = {
-        "Authorization": f"Bearer {API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": YOUR_SITE_URL,
-        "X-Title": YOUR_SITE_NAME
-    }
     try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers=headers,
-            data=json.dumps(payload),
-            timeout=10
+        completion = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": YOUR_SITE_URL,
+                "X-Title": YOUR_SITE_NAME
+            },
+            extra_body={},
+            model=GEMINI_MODEL,
+            messages=[
+                {"role": "user", "content": [{"type": "text", "text": prompt}]}
+            ]
         )
-        response.raise_for_status()
-        result = response.json()
-        question = result.get("choices", [{}])[0].get("message", {}).get("content", "No question generated.")
+        question = completion.choices[0].message.content
     except Exception as e:
         question = f"Error generating question: {e}"
     return question
