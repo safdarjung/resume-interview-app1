@@ -10,9 +10,9 @@ Instructions:
 """
 
 import streamlit as st
+import openai
 import json
 import PyPDF2
-from openai import OpenAI  # Make sure the openai package is installed
 
 # ----------------------------
 # Configuration and Constants
@@ -21,28 +21,26 @@ from openai import OpenAI  # Make sure the openai package is installed
 try:
     API_KEY = st.secrets["openrouter"]["api_key"]
 except KeyError:
-    st.error("API key not found in secrets. Please add [openrouter] section with 'api_key' to .streamlit/secrets.toml.")
+    st.error("API key not found in secrets. Please add an [openrouter] section with 'api_key' to .streamlit/secrets.toml.")
     API_KEY = None
 
 YOUR_SITE_URL = "https://your-site.com"
 YOUR_SITE_NAME = "YourSiteName"
 
+# Set OpenAI settings to use OpenRouter.
+openai.api_key = API_KEY
+openai.api_base = "https://openrouter.ai/api/v1"
+
 # Model identifiers
 GEMINI_MODEL = "google/gemini-2.0-flash-thinking-exp:free"
 QWEN_MODEL = "qwen/qwen-vl-plus:free"
-
-# Create an OpenAI client configured to use OpenRouter
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=API_KEY,
-)
 
 # ----------------------------
 # Helper Functions
 # ----------------------------
 def evaluate_with_model(model_name, answer, question):
     """
-    Sends a prompt to the specified model (Gemini or Qwen) to evaluate the candidate's answer.
+    Uses the OpenAI ChatCompletion endpoint (via OpenRouter) to evaluate the candidate's answer.
     """
     prompt = (
         f"Evaluate the candidate's answer to the interview question with a focus on practical skills, project experience, "
@@ -54,21 +52,22 @@ def evaluate_with_model(model_name, answer, question):
         f"2. Clarity and Depth of Concept Explanation: How clearly and thoroughly does the candidate explain the concepts?\n\n"
         f"Briefly mention any areas for improvement."
     )
+    
     try:
-        completion = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": YOUR_SITE_URL,
-                "X-Title": YOUR_SITE_NAME
-            },
-            extra_body={},
+        completion = openai.ChatCompletion.create(
             model=model_name,
             messages=[
                 {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            ]
+            ],
+            extra_headers={
+                "HTTP-Referer": YOUR_SITE_URL,
+                "X-Title": YOUR_SITE_NAME
+            }
         )
         evaluation = completion.choices[0].message.content
     except Exception as e:
         evaluation = f"Error during evaluation with {model_name}: {e}"
+    
     return evaluation
 
 def evaluate_answer(answer, question, selected_model):
@@ -105,17 +104,17 @@ def generate_clarification(answer, question):
         f"Candidate's Answer: {answer}\n\n"
         "Clarification and Suggestions:"
     )
+    
     try:
-        completion = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": YOUR_SITE_URL,
-                "X-Title": YOUR_SITE_NAME
-            },
-            extra_body={},
+        completion = openai.ChatCompletion.create(
             model=GEMINI_MODEL,
             messages=[
                 {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            ]
+            ],
+            extra_headers={
+                "HTTP-Referer": YOUR_SITE_URL,
+                "X-Title": YOUR_SITE_NAME
+            }
         )
         clarification = completion.choices[0].message.content
     except Exception as e:
@@ -154,17 +153,17 @@ def generate_dynamic_question(resume_text, conversation_history):
         f"Conversation History:\n{history_text}\n\n"
         "Interview Question:"
     )
+    
     try:
-        completion = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": YOUR_SITE_URL,
-                "X-Title": YOUR_SITE_NAME
-            },
-            extra_body={},
+        completion = openai.ChatCompletion.create(
             model=GEMINI_MODEL,
             messages=[
                 {"role": "user", "content": [{"type": "text", "text": prompt}]}
-            ]
+            ],
+            extra_headers={
+                "HTTP-Referer": YOUR_SITE_URL,
+                "X-Title": YOUR_SITE_NAME
+            }
         )
         question = completion.choices[0].message.content
     except Exception as e:
